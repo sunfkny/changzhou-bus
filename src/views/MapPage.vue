@@ -731,8 +731,7 @@ async function switchDirection() {
         </DrawerHeader>
         <div
           ref="stationListEl"
-          class="overflow-y-auto px-4 pb-6"
-          style="max-height: 60vh"
+          class="overflow-y-auto px-4 pb-6 max-h-[60dvh]"
         >
           <div
             v-for="station in stations"
@@ -813,7 +812,7 @@ async function switchDirection() {
         <DrawerHeader>
           <DrawerTitle>发车时刻表</DrawerTitle>
         </DrawerHeader>
-        <div class="overflow-y-auto px-4 pb-6" style="max-height: 60vh">
+        <div class="overflow-y-auto px-4 pb-6 max-h-[60dvh]">
           <div
             v-if="schedule.length === 0"
             class="text-center text-gray-400 py-8 text-sm"
@@ -848,6 +847,9 @@ async function switchDirection() {
               </div>
               <div class="text-xs text-gray-400 truncate">
                 {{ item.Start_Station_Name }} → {{ item.End_Station_Name }}
+              </div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                {{ item.driverName }} · {{ item.BusId }}
               </div>
             </div>
           </div>
