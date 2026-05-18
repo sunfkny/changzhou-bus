@@ -1,41 +1,47 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, useTemplateRef } from 'vue'
-import { useRouter } from 'vue-router'
-import { useQuery } from '@tanstack/vue-query'
-import { refDebounced } from '@vueuse/core'
-import { getLineList } from '../api/bus'
-import type { LineInfo } from '../types/bus'
-import { useFavorites } from '../composables/useFavorites'
+import { ref, computed, nextTick, onMounted, useTemplateRef } from "vue";
+import { useRouter } from "vue-router";
+import { useQuery } from "@tanstack/vue-query";
+import { refDebounced } from "@vueuse/core";
+import { getLineList } from "../api/bus";
+import type { LineInfo } from "../types/bus";
+import { useFavorites } from "../composables/useFavorites";
 
-const router = useRouter()
-const { favoriteLines, removeFavorite, openFavorite } = useFavorites()
+const router = useRouter();
+const { favoriteLines, removeFavorite, openFavorite } = useFavorites();
 
-const searchKeyword = ref('')
-const debouncedKeyword = refDebounced(searchKeyword, 300)
-const searchInput = useTemplateRef('searchInput')
+const searchKeyword = ref("");
+const debouncedKeyword = refDebounced(searchKeyword, 300);
+const searchInput = useTemplateRef("searchInput");
 
 onMounted(() => {
-  nextTick(() => searchInput.value?.focus())
-})
+  nextTick(() => searchInput.value?.focus());
+});
 
 const searchQuery = useQuery({
-  queryKey: computed(() => ['search', debouncedKeyword.value]),
+  queryKey: computed(() => ["search", debouncedKeyword.value]),
   queryFn: () => getLineList({ Line_Name: debouncedKeyword.value }),
   enabled: computed(() => debouncedKeyword.value.trim().length > 0),
-})
+});
 
-const searchResults = computed(() => searchQuery.data.value ?? [])
+const searchResults = computed(() => searchQuery.data.value ?? []);
 
-const showResults = computed(() => searchKeyword.value.trim().length > 0)
+const showResults = computed(() => searchKeyword.value.trim().length > 0);
 
 function selectLine(line: LineInfo) {
-  router.push({ name: 'map', params: { lineId: line.Line_Id, lineType: line.Line_Type } })
+  router.push({
+    name: "map",
+    params: { lineId: line.Line_Id, lineType: line.Line_Type },
+  });
 }
 
 async function onOpenFavorite(line: Parameters<typeof openFavorite>[0]) {
-  const lineInfo = await openFavorite(line)
+  const lineInfo = await openFavorite(line);
   if (lineInfo) {
-    router.push({ name: 'map', params: { lineId: lineInfo.Line_Id, lineType: lineInfo.Line_Type } })
+    router.push({
+      name: "map",
+      params: { lineId: lineInfo.Line_Id, lineType: lineInfo.Line_Type },
+    });
   }
 }
 </script>
@@ -58,8 +64,18 @@ async function onOpenFavorite(line: Parameters<typeof openFavorite>[0]) {
             class="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full active:bg-gray-200"
             @click="searchKeyword = ''"
           >
-            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              class="w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -87,7 +103,10 @@ async function onOpenFavorite(line: Parameters<typeof openFavorite>[0]) {
             {{ line.Start_Time }} - {{ line.End_Time }}
           </div>
         </div>
-        <div v-if="searchResults.length === 0" class="p-8 text-center text-gray-400">
+        <div
+          v-if="searchResults.length === 0"
+          class="p-8 text-center text-gray-400"
+        >
           未找到相关线路
         </div>
       </div>
@@ -95,7 +114,10 @@ async function onOpenFavorite(line: Parameters<typeof openFavorite>[0]) {
       <!-- 收藏线路 -->
       <div v-else class="p-4">
         <div class="text-sm font-medium text-gray-700 mb-3">收藏线路</div>
-        <div v-if="favoriteLines.length === 0" class="text-center text-gray-400 py-8 text-sm">
+        <div
+          v-if="favoriteLines.length === 0"
+          class="text-center text-gray-400 py-8 text-sm"
+        >
           暂无收藏，在线路详情页点击收藏
         </div>
         <div v-else class="space-y-2">
@@ -107,15 +129,27 @@ async function onOpenFavorite(line: Parameters<typeof openFavorite>[0]) {
           >
             <div>
               <div class="font-medium text-gray-800">{{ line.lineName }}</div>
-              <div class="text-xs text-gray-500">{{ line.startStation }} → {{ line.endStation }}</div>
+              <div class="text-xs text-gray-500">
+                {{ line.startStation }} → {{ line.endStation }}
+              </div>
             </div>
             <div class="flex items-center gap-2">
               <button
                 class="p-1 active:bg-gray-200 rounded-full"
                 @click.stop="removeFavorite(line)"
               >
-                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  class="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>

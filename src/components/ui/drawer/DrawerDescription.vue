@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { DrawerDescription } from 'vaul-vue'
-import { cn } from '@/lib/utils'
+import { DrawerDescription } from "vaul-vue";
+import { cn } from "@/lib/utils";
 
 const props = defineProps<{
-  class?: string
-}>()
+  class?: string;
+}>();
 </script>
 
 <template>

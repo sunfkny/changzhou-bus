@@ -8,32 +8,35 @@ import type {
   StationInfo,
   NearStation,
   BusInfo,
-  ApiResponse
-} from '@/types/bus'
+  ApiResponse,
+} from "@/types/bus";
 
-const BASE_URL = 'https://nczxserv.czsmk.com:8444'
+const BASE_URL = "https://nczxserv.czsmk.com:8444";
 
 /**
  * 封装请求方法
  */
-async function request<T>(path: string, params: Record<string, any> = {}): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`)
+async function request<T>(
+  path: string,
+  params: Record<string, unknown> = {},
+): Promise<T> {
+  const url = new URL(`${BASE_URL}${path}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== null && value !== undefined) {
-      url.searchParams.append(key, String(value))
+      url.searchParams.append(key, String(value));
     }
-  })
+  });
 
-  const response = await fetch(url.toString())
+  const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+    throw new Error(`HTTP ${response.status}`);
   }
 
-  const data: ApiResponse<T> = await response.json()
+  const data: ApiResponse<T> = await response.json();
   if (data.resCode !== 10000) {
-    throw new Error(data.resMsg || '请求失败')
+    throw new Error(data.resMsg || "请求失败");
   }
-  return data.value
+  return data.value;
 }
 
 /**
@@ -41,12 +44,14 @@ async function request<T>(path: string, params: Record<string, any> = {}): Promi
  * @param params - 查询参数
  * @returns 线路列表
  */
-export async function getLineList(params: {
-  Line_Id?: number
-  Line_Type?: number
-  Line_Name?: string
-} = {}): Promise<LineInfo[]> {
-  return request<LineInfo[]>('/dgbus/xzBusLine/cz/getLineList', params)
+export async function getLineList(
+  params: {
+    Line_Id?: number;
+    Line_Type?: number;
+    Line_Name?: string;
+  } = {},
+): Promise<LineInfo[]> {
+  return request<LineInfo[]>("/dgbus/xzBusLine/cz/getLineList", params);
 }
 
 /**
@@ -55,11 +60,14 @@ export async function getLineList(params: {
  * @param lineType - 线路类型 (1=下行, 2=上行, 3=环线)
  * @returns 站点列表
  */
-export async function getListByLine(lineId: number, lineType: number): Promise<StationInfo[]> {
-  return request<StationInfo[]>('/dgbus/xzBusLine/cz/getListByLine', {
+export async function getListByLine(
+  lineId: number,
+  lineType: number,
+): Promise<StationInfo[]> {
+  return request<StationInfo[]>("/dgbus/xzBusLine/cz/getListByLine", {
     Line_Id: lineId,
-    Line_Type: lineType
-  })
+    Line_Type: lineType,
+  });
 }
 
 /**
@@ -69,12 +77,16 @@ export async function getListByLine(lineId: number, lineType: number): Promise<S
  * @param distance - 搜索半径(米)，默认500
  * @returns 附近站点列表
  */
-export async function getNearList(lng: number, lat: number, distance: number = 500): Promise<NearStation[]> {
-  return request<NearStation[]>('/dgbus/xzBusLine/cz/getNearList', {
+export async function getNearList(
+  lng: number,
+  lat: number,
+  distance = 500,
+): Promise<NearStation[]> {
+  return request<NearStation[]>("/dgbus/xzBusLine/cz/getNearList", {
     Lng: lng,
     Lat: lat,
-    Distance: distance
-  })
+    Distance: distance,
+  });
 }
 
 /**
@@ -82,10 +94,12 @@ export async function getNearList(lng: number, lat: number, distance: number = 5
  * @param stationName - 站点名称关键词
  * @returns 站点列表
  */
-export async function getStationList(stationName: string): Promise<NearStation[]> {
-  return request<NearStation[]>('/dgbus/xzBusLine/cz/getStationList', {
-    Station_Name: stationName
-  })
+export async function getStationList(
+  stationName: string,
+): Promise<NearStation[]> {
+  return request<NearStation[]>("/dgbus/xzBusLine/cz/getStationList", {
+    Station_Name: stationName,
+  });
 }
 
 /**
@@ -94,11 +108,14 @@ export async function getStationList(stationName: string): Promise<NearStation[]
  * @param lineType - 线路类型
  * @returns 实时车辆列表
  */
-export async function getBusList(lineId: number, lineType: number): Promise<BusInfo[]> {
-  return request<BusInfo[]>('/dgbus/xzBusLine/cz/getBusList', {
+export async function getBusList(
+  lineId: number,
+  lineType: number,
+): Promise<BusInfo[]> {
+  return request<BusInfo[]>("/dgbus/xzBusLine/cz/getBusList", {
     Line_Id: lineId,
-    Line_Type: lineType
-  })
+    Line_Type: lineType,
+  });
 }
 
 /**
@@ -107,11 +124,14 @@ export async function getBusList(lineId: number, lineType: number): Promise<BusI
  * @param lineType - 线路类型
  * @returns GPS坐标串 "经度,纬度;经度,纬度;..."
  */
-export async function getLineGPS(lineId: number, lineType: number): Promise<string> {
-  return request<string>('/dgbus/xzBusLine/cz/getLineGPS', {
+export async function getLineGPS(
+  lineId: number,
+  lineType: number,
+): Promise<string> {
+  return request<string>("/dgbus/xzBusLine/cz/getLineGPS", {
     Line_Id: lineId,
-    Line_Type: lineType
-  })
+    Line_Type: lineType,
+  });
 }
 
 /**
@@ -120,11 +140,17 @@ export async function getLineGPS(lineId: number, lineType: number): Promise<stri
  * @param lineType - 线路类型
  * @returns 分段轨迹列表
  */
-export async function getLineGPSList(lineId: number, lineType: number): Promise<{ Type: number; gps: string }[]> {
-  return request<{ Type: number; gps: string }[]>('/dgbus/xzBusLine/cz/getLineGPSList', {
-    Line_Id: lineId,
-    Line_Type: lineType
-  })
+export async function getLineGPSList(
+  lineId: number,
+  lineType: number,
+): Promise<{ Type: number; gps: string }[]> {
+  return request<{ Type: number; gps: string }[]>(
+    "/dgbus/xzBusLine/cz/getLineGPSList",
+    {
+      Line_Id: lineId,
+      Line_Type: lineType,
+    },
+  );
 }
 
 /**
@@ -133,17 +159,22 @@ export async function getLineGPSList(lineId: number, lineType: number): Promise<
  * @param lineType - 线路类型
  * @returns 发车计划列表
  */
-export async function getDayPlanTime(lineId: number, lineType: number): Promise<{
-  BusId: string
-  Plan_Time: string
-  driverName: string
-  Run_Type: number
-  Start_Station_Name: string
-  startStationType: number
-  End_Station_Name: string
-}[]> {
-  return request('/dgbus/xzBusLine/cz/getDayPlanTime', {
+export async function getDayPlanTime(
+  lineId: number,
+  lineType: number,
+): Promise<
+  {
+    BusId: string;
+    Plan_Time: string;
+    driverName: string;
+    Run_Type: number;
+    Start_Station_Name: string;
+    startStationType: number;
+    End_Station_Name: string;
+  }[]
+> {
+  return request("/dgbus/xzBusLine/cz/getDayPlanTime", {
     Line_Id: lineId,
-    Line_Type: lineType
-  })
+    Line_Type: lineType,
+  });
 }
