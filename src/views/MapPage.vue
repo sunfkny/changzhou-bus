@@ -148,6 +148,33 @@ const schedule = computed(() => scheduleQuery.data.value ?? []);
 const selectedBusForInfo = computed(
   () => buses.value.find((bus) => bus.BusId === selectedBusId.value) ?? null,
 );
+const selectedBusNextStationName = computed(() => {
+  if (!selectedBusForInfo.value) return "-";
+
+  return (
+    stations.value.find(
+      (station) =>
+        station.Sort === selectedBusForInfo.value!.Current_Station_Sort + 1,
+    )?.Station_Name || "-"
+  );
+});
+const selectedBusRemainingStations = computed(() => {
+  if (!selectedBusForInfo.value || !selectedStation.value) return null;
+
+  return Math.max(
+    0,
+    selectedStation.value.Sort - selectedBusForInfo.value.Current_Station_Sort,
+  );
+});
+const selectedBusArrivalTime = computed(() => {
+  if (!selectedBusForInfo.value || !selectedStation.value) return null;
+
+  return estimateArrivalTime(
+    selectedBusForInfo.value,
+    stations.value,
+    selectedStation.value.Sort,
+  );
+});
 const busDrawerOpen = computed({
   get: () => selectedBusForInfo.value !== null,
   set: (open: boolean) => {
@@ -640,7 +667,7 @@ async function switchDirection() {
           </div>
         </DrawerHeader>
         <div v-if="selectedBusForInfo" class="px-4 pb-6">
-          <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="grid grid-cols-3 gap-3 text-sm">
             <div class="bg-gray-50 rounded-xl p-3">
               <div class="text-gray-500 text-xs mb-1">车辆编号</div>
               <div class="font-medium text-gray-800">
@@ -648,13 +675,9 @@ async function switchDirection() {
               </div>
             </div>
             <div class="bg-gray-50 rounded-xl p-3">
-              <div class="text-gray-500 text-xs mb-1">当前站</div>
+              <div class="text-gray-500 text-xs mb-1">下一站</div>
               <div class="font-medium text-gray-800">
-                {{
-                  stations.find(
-                    (s) => s.Sort === selectedBusForInfo?.Current_Station_Sort,
-                  )?.Station_Name || "-"
-                }}
+                {{ selectedBusNextStationName }}
               </div>
             </div>
             <div class="bg-gray-50 rounded-xl p-3">
@@ -674,6 +697,26 @@ async function switchDirection() {
               <div class="text-gray-500 text-xs mb-1">速度</div>
               <div class="font-medium text-gray-800">
                 {{ selectedBusForInfo.Speed ?? 0 }} km/h
+              </div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+              <div class="text-gray-500 text-xs mb-1">剩余站数</div>
+              <div class="font-medium text-gray-800">
+                {{
+                  selectedBusRemainingStations === null
+                    ? "-"
+                    : `${selectedBusRemainingStations}站`
+                }}
+              </div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+              <div class="text-gray-500 text-xs mb-1">预计时间</div>
+              <div class="font-medium text-gray-800">
+                {{
+                  selectedBusArrivalTime === null
+                    ? "-"
+                    : `${selectedBusArrivalTime}分钟`
+                }}
               </div>
             </div>
           </div>
