@@ -6,7 +6,9 @@ import { useGeolocation } from '@vueuse/core'
 import { getLineList, getListByLine, getBusList, getLineGPSList, getDayPlanTime } from '../api/bus'
 import { LineType } from '../types/bus'
 import type { StationInfo, BusInfo } from '../types/bus'
-import { haversineDistance, estimateArrivalTime } from '../utils/haversine'
+import { haversineDistance } from '../utils/haversine'
+import { estimateArrivalTime } from '../utils/estimateArrivalTime'
+import { wgs84ToGcj02 } from '../utils/gcj02'
 import { useFavorites } from '../composables/useFavorites'
 import Drawer from '../components/ui/drawer/Drawer.vue'
 import DrawerContent from '../components/ui/drawer/DrawerContent.vue'
@@ -83,7 +85,8 @@ const selectedBusForInfo = ref<BusInfo | null>(null)
 const { coords: geoCoords } = useGeolocation({ enableHighAccuracy: true })
 const userPosition = computed(() => {
   if (geoCoords.value.latitude === 0 && geoCoords.value.longitude === 0) return null
-  return { lng: geoCoords.value.longitude, lat: geoCoords.value.latitude }
+  const converted = wgs84ToGcj02(geoCoords.value.longitude, geoCoords.value.latitude)
+  return { lng: converted.lng, lat: converted.lat }
 })
 
 // --- Computed ---
