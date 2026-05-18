@@ -33,6 +33,7 @@ import Drawer from "../components/ui/drawer/Drawer.vue";
 import DrawerContent from "../components/ui/drawer/DrawerContent.vue";
 import DrawerHeader from "../components/ui/drawer/DrawerHeader.vue";
 import DrawerTitle from "../components/ui/drawer/DrawerTitle.vue";
+import busIconUrl from "../assets/busQuery/ssgj.png";
 
 const props = defineProps<{
   lineId: string;
@@ -124,7 +125,7 @@ const hasLocated = ref(false);
 const selectedStation = ref<StationInfo | null>(null);
 const showStationList = ref(false);
 const showSchedule = ref(false);
-const selectedBusForInfo = ref<BusInfo | null>(null);
+const selectedBusId = ref<string | null>(null);
 
 const { coords: geoCoords } = useGeolocation({ enableHighAccuracy: true });
 const userPosition = computed(() => {
@@ -144,6 +145,17 @@ const stations = computed(() => stationsQuery.data.value ?? []);
 const buses = computed(() => busQuery.data.value ?? []);
 const gpsData = computed(() => gpsQuery.data.value ?? []);
 const schedule = computed(() => scheduleQuery.data.value ?? []);
+const selectedBusForInfo = computed(
+  () => buses.value.find((bus) => bus.BusId === selectedBusId.value) ?? null,
+);
+const busDrawerOpen = computed({
+  get: () => selectedBusForInfo.value !== null,
+  set: (open: boolean) => {
+    if (!open) {
+      selectedBusId.value = null;
+    }
+  },
+});
 
 const currentDirection = computed(() => {
   const s = stations.value;
@@ -178,19 +190,59 @@ function getStationMarkerContent(station: StationInfo) {
   const isTerminal =
     station.Sort === 1 || station.Sort === stations.value.length;
   const isSelected = selectedStation.value?.Station_Id === station.Station_Id;
-  const hasBus = buses.value.some(
-    (b) => b.Current_Station_Sort === station.Sort,
-  );
 
   return {
     content: isTerminal
       ? `<div style="width:24px;height:24px;background:${isSelected ? "#F97316" : "#3B82F6"};color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2)">${station.Sort}</div>`
-      : `<div style="width:${isSelected ? 16 : 12}px;height:${isSelected ? 16 : 12}px;background:${isSelected ? "#F97316" : hasBus ? "#EF4444" : "white"};border:2px solid ${isSelected ? "#F97316" : hasBus ? "#EF4444" : "#3B82F6"};border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.15)"></div>`,
+      : `<div style="width:${isSelected ? 16 : 12}px;height:${isSelected ? 16 : 12}px;background:${isSelected ? "#F97316" : "white"};border:2px solid ${isSelected ? "#F97316" : "#3B82F6"};border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.15)"></div>`,
     offset: new window.AMap.Pixel(
       isTerminal ? -12 : isSelected ? -8 : -6,
       isTerminal ? -12 : isSelected ? -8 : -6,
     ),
   };
+}
+
+function getBusMarkerIcon() {
+  return new window.AMap.Icon({
+    size: new window.AMap.Size(40, 20),
+    image: busIconUrl,
+    imageSize: new window.AMap.Size(40, 20),
+  });
+}
+
+function getBusMarkerAngle(stepGps: string | null) {
+  if (!stepGps) return 0;
+
+  const points = stepGps
+    .split(";")
+    .map((item) => item.split(",").map(Number))
+    .filter(
+      (item): item is [number, number] =>
+        item.length >= 2 &&
+        Number.isFinite(item[0]) &&
+        Number.isFinite(item[1]),
+    );
+
+  if (points.length < 2) return 0;
+
+  const [startLng, startLat] = points[0];
+  const [endLng, endLat] = points[points.length - 1];
+  let rotateAngle = Math.atan2(
+    Math.abs(startLng - endLng),
+    Math.abs(startLat - endLat),
+  );
+
+  if (endLng >= startLng) {
+    if (endLat < startLat) {
+      rotateAngle = Math.PI - rotateAngle;
+    }
+  } else if (endLat >= startLat) {
+    rotateAngle = 2 * Math.PI - rotateAngle;
+  } else {
+    rotateAngle = Math.PI + rotateAngle;
+  }
+
+  return (rotateAngle * 180) / Math.PI - 90;
 }
 
 // --- Watchers ---
@@ -255,6 +307,13 @@ watchEffect(() => {
       el?.scrollIntoView({ block: "center", behavior: "smooth" });
     });
   }
+});
+
+watchEffect(() => {
+  const bus = selectedBusForInfo.value;
+  if (!map || !bus?.LatLng) return;
+
+  map.panTo([bus.LatLng.longitude, bus.LatLng.latitude]);
 });
 
 // --- Lifecycle ---
@@ -363,6 +422,8 @@ function drawMap(gpsList: { Type: number; gps: string }[]) {
     m.setFitView(undefined, true, [20, 20, 40, 20]);
     hasDrawn.value = true;
   }
+
+  updateBusMarkers();
 }
 
 function updateBusMarkers() {
@@ -373,11 +434,19 @@ function updateBusMarkers() {
 
   buses.value.forEach((bus) => {
     if (!bus.LatLng) return;
+    const icon = getBusMarkerIcon();
     const marker = new window.AMap.Marker({
       position: [bus.LatLng.longitude, bus.LatLng.latitude],
-      content: `<div style="font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))">🚌</div>`,
-      offset: new window.AMap.Pixel(-11, -11),
-      zIndex: 200,
+      icon,
+      angle: getBusMarkerAngle(bus.StepGps),
+      anchor: "center",
+      zIndex: 99,
+      extData: bus.BusId,
+      clickable: true,
+    });
+    marker.on("click", () => {
+      m.setCenter([bus.LatLng!.longitude, bus.LatLng!.latitude]);
+      selectedBusId.value = bus.BusId;
     });
     m.add(marker);
     busMarkers.push(marker);
@@ -559,50 +628,25 @@ async function switchDirection() {
           />
         </svg>
       </button>
+    </div>
 
-      <!-- 公交车信息弹窗 -->
-      <Transition name="slide-up">
-        <div
-          v-if="selectedBusForInfo"
-          class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-lg z-30 p-4"
-        >
-          <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-3">
-              <div
-                class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white"
-              >
-                🚌
-              </div>
-              <div>
-                <div class="font-medium text-gray-800">
-                  {{ selectedBusForInfo?.BusNo }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ selectedBusForInfo?.Oil_Type === 1 ? "新能源" : "燃油" }}
-                </div>
+    <Drawer v-model:open="busDrawerOpen" :modal="false">
+      <DrawerContent>
+        <DrawerHeader>
+          <div class="flex items-center justify-between gap-3 px-4">
+            <DrawerTitle>{{
+              selectedBusForInfo?.BusNo || "公交车信息"
+            }}</DrawerTitle>
+          </div>
+        </DrawerHeader>
+        <div v-if="selectedBusForInfo" class="px-4 pb-6">
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="bg-gray-50 rounded-xl p-3">
+              <div class="text-gray-500 text-xs mb-1">车辆编号</div>
+              <div class="font-medium text-gray-800">
+                {{ selectedBusForInfo.BusId || "-" }}
               </div>
             </div>
-            <button
-              class="p-1 active:bg-gray-100 rounded-full"
-              @click="selectedBusForInfo = null"
-            >
-              <svg
-                class="w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-          <div class="grid grid-cols-2 gap-3 text-sm">
             <div class="bg-gray-50 rounded-xl p-3">
               <div class="text-gray-500 text-xs mb-1">当前站</div>
               <div class="font-medium text-gray-800">
@@ -618,18 +662,24 @@ async function switchDirection() {
               <div
                 class="font-medium"
                 :class="
-                  selectedBusForInfo?.IsArrive === 1
+                  selectedBusForInfo.IsArrive === 1
                     ? 'text-green-600'
                     : 'text-orange-500'
                 "
               >
-                {{ selectedBusForInfo?.IsArrive === 1 ? "已到站" : "行驶中" }}
+                {{ selectedBusForInfo.IsArrive === 1 ? "已到站" : "行驶中" }}
+              </div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+              <div class="text-gray-500 text-xs mb-1">速度</div>
+              <div class="font-medium text-gray-800">
+                {{ selectedBusForInfo.Speed ?? 0 }} km/h
               </div>
             </div>
           </div>
         </div>
-      </Transition>
-    </div>
+      </DrawerContent>
+    </Drawer>
 
     <!-- 底部面板 -->
     <div v-if="selectedStation" class="flex-shrink-0 bg-white shadow-lg z-20">
@@ -644,32 +694,35 @@ async function switchDirection() {
           第{{ selectedStation.Sort }}站
         </div>
 
-        <div v-if="selectedStationBuses.length > 0" class="space-y-2">
+        <div
+          v-if="selectedStationBuses.length > 0"
+          class="grid grid-cols-3 gap-2"
+        >
           <div
-            v-for="item in selectedStationBuses"
+            v-for="item in selectedStationBuses.slice(0, 3)"
             :key="`${item.bus.BusId}-${item.bus.Current_Station_Sort}`"
-            class="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
+            class="bg-gray-50 rounded-xl p-3 cursor-pointer active:bg-gray-100"
+            @click="selectedBusId = item.bus.BusId"
           >
-            <div class="flex items-center gap-3">
-              <div
-                class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs"
-              >
-                🚌
-              </div>
-              <div>
-                <div class="text-sm font-medium text-gray-800">
-                  {{ item.bus.BusNo }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  还有{{
-                    item.bus.Current_Station_Sort - selectedStation.Sort + 1
-                  }}站
-                </div>
-              </div>
+            <div class="text-sm font-medium text-gray-800 truncate">
+              {{ item.bus.BusNo || item.bus.BusId }}
             </div>
-            <div class="text-right">
-              <div class="text-lg font-bold text-orange-500">
-                约{{ item.time }}分钟
+            <div class="text-xs text-gray-500 truncate">
+              {{ item.bus.BusId }}
+            </div>
+            <div class="mt-2 flex items-center justify-between gap-2">
+              <div class="text-xs text-gray-500 whitespace-nowrap">
+                {{
+                  Math.max(
+                    0,
+                    selectedStation.Sort - item.bus.Current_Station_Sort,
+                  )
+                }}站
+              </div>
+              <div
+                class="text-base font-bold text-orange-500 whitespace-nowrap"
+              >
+                {{ item.time }}分钟
               </div>
             </div>
           </div>
@@ -767,17 +820,28 @@ async function switchDirection() {
                   (b) => b.Current_Station_Sort === station.Sort,
                 )"
                 :key="bus.BusId"
-                class="w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs cursor-pointer active:bg-blue-600"
-                @click.stop="selectedBusForInfo = bus"
+                class="flex flex-col items-center gap-1 cursor-pointer"
+                @click.stop="selectedBusId = bus.BusId"
               >
-                🚌
+                <div
+                  class="w-10 h-6 rounded-full flex items-center justify-center"
+                  :class="bus.IsArrive === 1 ? 'bg-green-100' : 'bg-orange-100'"
+                >
+                  <img
+                    :src="busIconUrl"
+                    alt=""
+                    class="w-8 h-4 object-contain"
+                  />
+                </div>
+                <div
+                  class="text-[10px] leading-none font-medium whitespace-nowrap"
+                  :class="
+                    bus.IsArrive === 1 ? 'text-green-600' : 'text-orange-500'
+                  "
+                >
+                  {{ bus.IsArrive === 1 ? "到站" : "开往下站" }}
+                </div>
               </div>
-              <div
-                v-if="
-                  buses.some((b) => b.Current_Station_Sort === station.Sort)
-                "
-                class="w-2 h-2 bg-red-500 rounded-full"
-              ></div>
               <div
                 v-if="
                   buses.some(

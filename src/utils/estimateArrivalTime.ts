@@ -1,6 +1,29 @@
 import type { StationInfo, BusInfo } from "@/types/bus";
 import { haversineDistance } from "./haversine";
 
+function getSegmentDistance(
+  stationList: StationInfo[],
+  currentIndex: number,
+  nextIndex: number,
+) {
+  const nextStation = stationList[nextIndex];
+  if (!nextStation) return 0;
+
+  if (typeof nextStation.Distance === "number" && nextStation.Distance > 0) {
+    return nextStation.Distance;
+  }
+
+  const currentStation = stationList[currentIndex];
+  if (!currentStation) return 0;
+
+  return haversineDistance(
+    currentStation.LatLng.longitude,
+    currentStation.LatLng.latitude,
+    nextStation.LatLng.longitude,
+    nextStation.LatLng.latitude,
+  );
+}
+
 /**
  * 估算公交到站时间（分钟）
  */
@@ -11,38 +34,40 @@ export function estimateArrivalTime(
 ): number | null {
   if (!bus || !bus.LatLng) return null;
 
-  const currentSort = bus.Current_Station_Sort;
+  const orderedStations = [...stationList].sort((a, b) => a.Sort - b.Sort);
+  const currentIndex = orderedStations.findIndex(
+    (station) => station.Sort === bus.Current_Station_Sort,
+  );
+  const targetIndex = orderedStations.findIndex(
+    (station) => station.Sort === targetSort,
+  );
 
-  // 计算剩余站数
-  const remainingStations = stationList.filter(
-    (s) => s.Sort > currentSort && s.Sort <= targetSort,
-  ).length;
+  if (currentIndex === -1 || targetIndex === -1 || currentIndex > targetIndex) {
+    return null;
+  }
 
-  // 计算剩余距离
   let remainingDistance = 0;
-  for (const station of stationList) {
-    if (station.Sort > currentSort && station.Sort <= targetSort) {
-      remainingDistance += station.Distance || 0;
-    }
+  let stopTime = 0;
+
+  for (let index = currentIndex + 1; index <= targetIndex; index += 1) {
+    remainingDistance += getSegmentDistance(orderedStations, index - 1, index);
+    stopTime += 0.5;
   }
 
-  // 如果当前在两站之间，减去已走过的部分
-  if (bus.IsArrive === 0 && bus.LatLng) {
-    const currentStation = stationList.find((s) => s.Sort === currentSort);
-    if (currentStation) {
-      const drivenDistance = haversineDistance(
-        currentStation.LatLng.longitude,
-        currentStation.LatLng.latitude,
-        bus.LatLng.longitude,
-        bus.LatLng.latitude,
-      );
-      remainingDistance = Math.max(0, remainingDistance - drivenDistance);
-    }
+  const currentStation = orderedStations[currentIndex];
+  if (bus.IsArrive === 1) {
+    stopTime += 0.5;
+  } else if (currentStation) {
+    const drivenDistance = haversineDistance(
+      currentStation.LatLng.longitude,
+      currentStation.LatLng.latitude,
+      bus.LatLng.longitude,
+      bus.LatLng.latitude,
+    );
+    remainingDistance = Math.max(0, remainingDistance - drivenDistance);
   }
 
-  // 估算时间: 行驶时间 + 停靠时间
-  const driveTime = remainingDistance / 500; // 平均速度500m/分钟
-  const stopTime = remainingStations * 0.5; // 每站停靠0.5分钟
+  const driveTime = remainingDistance / 500;
 
   return Math.ceil(driveTime + stopTime);
 }
